@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truco Matemático</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .suit-paus { color: #60a5fa; }
+        .suit-copas { color: #f43f5e; }
+        .suit-espadas { color: #c084fc; }
+        .suit-ouros { color: #fbbf24; }
+        
+        .card-shadow {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col justify-between select-none">
+
+    <!-- Top Navigation Bar -->
+    <header class="p-4 bg-slate-900 border-b border-emerald-900/40">
+        <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🎴</span>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-200 bg-clip-text text-transparent">
+                    Truco Matemático
+                </h1>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="startBotGame()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs shadow transition">
+                    🤖 Jogar vs BOT
+                </button>
+                <button onclick="openMultiplayerModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs shadow transition">
+                    🌐 Jogar com Amigo (Online)
+                </button>
+                <button onclick="toggleGithubModal()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold py-1.5 px-3 rounded-lg text-xs border border-slate-700 shadow transition">
+                    🚀 Publicar no GitHub
+                </button>
+                <button onclick="toggleModal('rules-modal')" class="bg-emerald-800 hover:bg-emerald-700 text-emerald-100 font-bold py-1.5 px-3 rounded-lg text-xs shadow transition">
+                    ❓ Regras
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Felt Area -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 flex flex-col justify-between gap-4">
+        
+        <!-- Status Indicator Bar -->
+        <div id="connection-banner" class="hidden bg-indigo-950/80 border border-indigo-700/50 p-2 rounded-xl text-center text-xs text-indigo-200">
+            Modo Online Ativo | Sala: <span id="banner-room-code" class="font-mono font-bold text-amber-300">------</span> | 
+            Status: <span id="banner-status-text" class="font-bold text-emerald-400">Aguardando oponente...</span>
+        </div>
+
+        <!-- Scoreboard Header -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-emerald-950/80 p-4 rounded-2xl border border-emerald-800/50 shadow-xl backdrop-blur text-center items-center">
+            <div class="bg-emerald-900/40 p-3 rounded-xl border border-emerald-700/30">
+                <span id="player-score-label" class="text-xs uppercase tracking-wider text-emerald-300 block">Nós (Você)</span>
+                <span id="player-score" class="text-3xl font-black text-amber-400">0</span>
+            </div>
+
+            <div class="col-span-2 sm:col-span-1 flex flex-col items-center justify-center">
+                <span class="text-xs text-emerald-300 font-semibold mb-1">Status da Mão</span>
+                <span id="hand-points" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full text-xs font-bold">
+                    Vale 1 Ponto
+                </span>
+                <span id="turn-indicator" class="text-xs text-slate-300 font-medium mt-1">Sua Vez de Jogar</span>
+            </div>
+
+            <div class="bg-emerald-900/40 p-3 rounded-xl border border-emerald-700/30">
+                <span id="opponent-score-label" class="text-xs uppercase tracking-wider text-emerald-300 block">Eles (Oponente)</span>
+                <span id="bot-score" class="text-3xl font-black text-rose-400">0</span>
+            </div>
+        </div>
+
+        <!-- Table Playfield -->
+        <div class="flex-1 bg-emerald-900/90 rounded-3xl border-4 border-emerald-950 p-6 shadow-2xl relative flex flex-col justify-between min-h-[380px]">
+            
+            <!-- Opponent Hand -->
+            <div class="flex flex-col items-center gap-1">
+                <span id="opponent-hand-label" class="text-[10px] uppercase font-bold text-emerald-300">Oponente</span>
+                <div id="bot-cards" class="flex gap-2 min-h-[80px] items-center">
+                    <!-- Dynamic rendering -->
+                </div>
+            </div>
+
+            <!-- Table Center (Vira & Table slots) -->
+            <div class="flex flex-col sm:flex-row items-center justify-around gap-4 my-2">
+                <!-- Vira Card -->
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] uppercase font-bold text-emerald-200 mb-1">Vira da Rodada</span>
+                    <div id="vira-card-container" class="min-w-[60px] min-h-[85px] border-2 border-emerald-700/60 rounded-xl flex items-center justify-center bg-emerald-950/40">
+                        <!-- Vira Card Slot -->
+                    </div>
+                </div>
+
+                <!-- Played Cards Area -->
+                <div class="flex gap-6 items-center">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] uppercase text-emerald-200 mb-1">Sua Jogada</span>
+                        <div id="user-played-slot" class="w-20 h-28 border-2 border-dashed border-emerald-700/50 rounded-xl flex items-center justify-center bg-emerald-950/20">
+                            <span class="text-xs text-emerald-600 font-bold">Vazio</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] uppercase text-emerald-200 mb-1">Jogada Oponente</span>
+                        <div id="bot-played-slot" class="w-20 h-28 border-2 border-dashed border-emerald-700/50 rounded-xl flex items-center justify-center bg-emerald-950/20">
+                            <span class="text-xs text-emerald-600 font-bold">Vazio</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Log -->
+            <div id="game-log" class="text-center text-xs text-emerald-200/80 bg-emerald-950/50 py-1.5 px-3 rounded-lg max-h-16 overflow-y-auto mb-2 border border-emerald-800/40">
+                Escolha o modo de jogo no topo para iniciar!
+            </div>
+
+            <!-- Player Hand -->
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[10px] uppercase font-bold text-emerald-300">Suas Cartas</span>
+                <div id="user-cards" class="flex gap-3 min-h-[90px] items-center">
+                    <!-- Cards -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex flex-wrap justify-center gap-3">
+            <button id="truco-btn" onclick="handleTrucoClick()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-2.5 px-6 rounded-xl shadow-lg transition transform hover:scale-105 text-sm uppercase tracking-wide">
+                Pedir Truco!
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Modal: Multiplayer / Play with Friends -->
+    <div id="multiplayer-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-indigo-600/50 rounded-2xl max-w-md w-full p-6 text-slate-100 shadow-2xl relative">
+            <button onclick="openMultiplayerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+            <h3 class="text-xl font-bold text-indigo-400 mb-4 text-center flex items-center justify-center gap-2">
+                <span>🌐</span> Jogar Online contra Amigo
+            </h3>
+            
+            <div class="space-y-5 text-sm">
+                <!-- Host Room Section -->
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/60 text-center">
+                    <h4 class="font-bold text-slate-200 mb-2">Criar Uma Nova Sala</h4>
+                    <p class="text-xs text-slate-400 mb-3">Crie a sala e envie o código para seu amigo entrar.</p>
+                    
+                    <button onclick="createOnlineRoom()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-2.5 px-4 rounded-xl text-xs text-white shadow transition">
+                        ➕ Criar Nova Sala Online
+                    </button>
+
+                    <div id="online-room-status" class="hidden mt-4 pt-3 border-t border-slate-700/60">
+                        <span class="text-xs text-slate-400 block mb-1">Código da sua Sala:</span>
+                        <div id="current-room-code" class="text-2xl font-black font-mono text-amber-400 tracking-widest my-1">
+                            ------
+                        </div>
+                        <p id="room-waiting-msg" class="text-xs text-amber-300 animate-pulse my-2">Aguardando seu amigo se conectar...</p>
+                        <button onclick="copyRoomLink()" class="bg-amber-600 hover:bg-amber-500 font-bold px-4 py-1.5 rounded-lg text-xs text-white transition">
+                            📋 Copiar Link / Código
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative flex py-1 items-center">
+                    <div class="flex-grow border-t border-slate-700"></div>
+                    <span class="flex-shrink mx-3 text-xs text-slate-500 uppercase font-bold">OU</span>
+                    <div class="flex-grow border-t border-slate-700"></div>
+                </div>
+
+                <!-- Join Room Section -->
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/60 text-center">
+                    <h4 class="font-bold text-slate-200 mb-2">Entrar em uma Sala Existente</h4>
+                    <p class="text-xs text-slate-400 mb-3">Digite abaixo o código recebido:</p>
+                    
+                    <div class="flex gap-2">
+                        <input id="room-code-input" type="text" placeholder="Ex: A8B9X2" maxlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center font-mono font-bold text-amber-300 uppercase focus:outline-none focus:border-indigo-500 text-sm">
+                        <button id="btn-join-room" onclick="window.joinOnlineRoom()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                            Entrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="window.openMultiplayerModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-6 py-2 rounded-xl text-xs">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Truco Request Overlay -->
+    <div id="truco-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border-2 border-amber-500 rounded-2xl max-w-sm w-full p-6 text-slate-100 shadow-2xl text-center">
+            <span class="text-4xl block mb-2">🔥</span>
+            <h3 id="truco-modal-title" class="text-xl font-black text-amber-400 mb-2">TRUCO PEDIDO!</h3>
+            <p id="truco-modal-desc" class="text-xs text-slate-300 mb-6">O oponente está pedindo Truco! A mão passará a valer 3 pontos.</p>
+
+            <div class="flex gap-3 justify-center">
+                <button onclick="respondTruco(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                    ✅ Aceitar (Aceito)
+                </button>
+                <button onclick="respondTruco(false)" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                    ❌ Correr (Fugir)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: GitHub Rules/Guide -->
+    <div id="github-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 text-slate-100 max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <button onclick="toggleGithubModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+            <h3 class="text-xl font-bold text-amber-400 mb-4 text-center">🚀 Como Publicar no GitHub Pages</h3>
+            
+            <ol class="space-y-3 text-xs text-slate-300 list-decimal list-inside">
+                <li>Salve este arquivo no seu computador com o nome <strong>index.html</strong>.</li>
+                <li>Acesse o <a href="https://github.com" target="_blank" class="text-indigo-400 underline">GitHub</a> e crie um novo repositório público chamado <strong>truco-matematico</strong>.</li>
+                <li>Envie o arquivo <strong>index.html</strong> para a raiz do repositório.</li>
+                <li>Vá em <strong>Settings &gt; Pages</strong> no seu repositório do GitHub.</li>
+                <li>Na opção <strong>Branch</strong>, selecione <strong>main</strong> (ou master) e clique em <strong>Save</strong>.</li>
+                <li>Aguarde cerca de 1 a 2 minutos. O link oficial do seu jogo será gerado no padrão:
+                    <div class="mt-2 bg-slate-950 p-2 rounded-lg font-mono text-emerald-400 break-all text-center">
+                        https://seu-usuario.github.io/truco-matematico/
+                    </div>
+                </li>
+            </ol>
+
+            <div class="mt-5 text-center">
+                <button onclick="toggleGithubModal()" class="bg-amber-600 hover:bg-amber-500 font-bold px-6 py-2 rounded-xl text-xs text-white transition">Entendi!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Rules & Legend -->
+    <div id="rules-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-emerald-600/40 rounded-2xl max-w-lg w-full p-6 text-slate-100 max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <button onclick="toggleModal('rules-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+            <h3 class="text-xl font-bold text-amber-400 mb-4 text-center">Regras do Truco Matemático</h3>
+            
+            <div class="space-y-4 text-sm">
+                <div>
+                    <h4 class="font-bold text-emerald-400 mb-2">Símbolos dos Naipes Operacionais:</h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 bg-slate-800 rounded-lg flex items-center gap-2">
+                            <span class="text-xl font-black text-blue-400">x</span> 
+                            <span>Paus (Força 4)</span>
+                        </div>
+                        <div class="p-2 bg-slate-800 rounded-lg flex items-center gap-2">
+                            <span class="text-xl font-black text-rose-500">+</span> 
+                            <span>Copas (Força 3)</span>
+                        </div>
+                        <div class="p-2 bg-slate-800 rounded-lg flex items-center gap-2">
+                            <span class="text-xl font-black text-purple-400">÷</span> 
+                            <span>Espadas (Força 2)</span>
+                        </div>
+                        <div class="p-2 bg-slate-800 rounded-lg flex items-center gap-2">
+                            <span class="text-xl font-black text-amber-400">-</span> 
+                            <span>Ouros (Força 1)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-emerald-400 mb-2">Valores Matemáticos:</h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div class="bg-slate-800 p-2 rounded">2² = 4</div>
+                        <div class="bg-slate-800 p-2 rounded">10 ÷ 2 = 5</div>
+                        <div class="bg-slate-800 p-2 rounded">3! = 6</div>
+                        <div class="bg-slate-800 p-2 rounded">√49 = 7</div>
+                        <div class="bg-slate-800 p-2 rounded">5 × 2 = Q (10)</div>
+                        <div class="bg-slate-800 p-2 rounded">7 + 4 = J (11)</div>
+                        <div class="bg-slate-800 p-2 rounded">4! ÷ 2 = K (12)</div>
+                        <div class="bg-slate-800 p-2 rounded">cos(0) = Ás (1)</div>
+                        <div class="bg-slate-800 p-2 rounded">√4 = 2</div>
+                        <div class="bg-slate-800 p-2 rounded">9 ÷ 3 = 3</div>
+                        <div class="bg-slate-800 p-2 rounded col-span-2 text-amber-400">xⁿ = Potência (Coringa)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="toggleModal('rules-modal')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl text-xs">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Initialization
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "dummy-key",
+            authDomain: "truco-math.firebaseapp.com",
+            projectId: "truco-math",
+            storageBucket: "truco-math.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:123456"
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'truco-matematico-app';
+
+        let app, db, auth;
+        let currentUser = null;
+        let unsubscribeRoom = null;
+        let currentRoomId = null;
+        let playerRole = null; // 'p1' (Host) or 'p2' (Guest)
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            signInAnonymously(auth).then(userCred => {
+                currentUser = userCred.user;
+            }).catch(e => console.log("Firebase Auth Fallback", e));
+        } catch (e) {
+            console.log("Firebase initialized in standalone mode", e);
+        }
+
+        // Global Modal Handlers
+        window.toggleModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.toggle('hidden');
+        };
+
+        window.toggleGithubModal = function() {
+            window.toggleModal('github-modal');
+        };
+
+        window.openMultiplayerModal = function() {
+            window.toggleModal('multiplayer-modal');
+        };
+
+        // Game Definitions
+        const SUITS = [
+            { symbol: '-', name: 'Ouros', color: 'suit-ouros', power: 1 },
+            { symbol: '÷', name: 'Espadas', color: 'suit-espadas', power: 2 },
+            { symbol: '+', name: 'Copas', color: 'suit-copas', power: 3 },
+            { symbol: 'x', name: 'Paus', color: 'suit-paus', power: 4 }
+        ];
+
+        const RANKS = [
+            { expr: '2²', basePower: 1, label: '4' },
+            { expr: '10 ÷ 2', basePower: 2, label: '5' },
+            { expr: '3!', basePower: 3, label: '6' },
+            { expr: '√49', basePower: 4, label: '7' },
+            { expr: '5 × 2', basePower: 5, label: 'Q' },
+            { expr: '7 + 4', basePower: 6, label: 'J' },
+            { expr: '4! ÷ 2', basePower: 7, label: 'K' },
+            { expr: 'cos(0)', basePower: 8, label: '1' },
+            { expr: '√4', basePower: 9, label: '2' },
+            { expr: '9 ÷ 3', basePower: 10, label: '3' },
+            { expr: 'xⁿ', basePower: 11, label: 'Coringa', isJoker: true }
+        ];
+
+        let mode = 'bot'; // 'bot' or 'online'
+        let localState = {
+            p1Score: 0,
+            p2Score: 0,
+            handValue: 1,
+            vira: null,
+            p1Hand: [],
+            p2Hand: [],
+            p1Played: null,
+            p2Played: null,
+            currentTurn: 'p1',
+            trucoState: null // { requestedBy: 'p1', targetValue: 3 }
+        };
+
+        function createDeck() {
+            let deck = [];
+            let id = 0;
+            SUITS.forEach(suit => {
+                RANKS.forEach(rank => {
+                    deck.push({
+                        id: id++,
+                        expr: rank.expr,
+                        label: rank.label,
+                        suitSymbol: suit.symbol,
+                        suitName: suit.name,
+                        suitColor: suit.color,
+                        suitPower: suit.power,
+                        basePower: rank.basePower,
+                        isJoker: rank.isJoker || false
+                    });
+                });
+            });
+            return deck.sort(() => Math.random() - 0.5);
+        }
+
+        function calculateManilhaPower(vira) {
+            let manilhaPower = vira.basePower + 1;
+            if (manilhaPower > 10 && !vira.isJoker) manilhaPower = 1;
+            return manilhaPower;
+        }
+
+        function getCardStrength(card, vira) {
+            if (card.isJoker) return 999;
+            const manilhaPower = calculateManilhaPower(vira);
+            if (card.basePower === manilhaPower) {
+                return 100 + card.suitPower;
+            }
+            return card.basePower;
+        }
+
+        function renderCardHTML(card, isHidden = false, onClickHandler = '') {
+            if (!card) return '<div class="w-16 h-24 border-2 border-dashed border-emerald-800 rounded-xl"></div>';
+            if (isHidden) {
+                return `
+                    <div class="w-16 h-24 bg-gradient-to-br from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-xl card-shadow flex items-center justify-center">
+                        <span class="text-2xl text-indigo-400">🎴</span>
+                    </div>
+                `;
+            }
+
+            const centerSymbol = card.isJoker ? 'χ²' : card.suitSymbol;
+            return `
+                <div onclick="${onClickHandler}" class="w-16 h-24 bg-slate-900 border-2 border-slate-700 rounded-xl p-1 relative flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:-translate-y-1 transition card-shadow select-none">
+                    <div class="flex flex-col items-center leading-none ${card.suitColor}">
+                        <span class="text-[9px] font-mono font-bold">${card.expr}</span>
+                        <span class="text-[10px] font-bold">${card.suitSymbol}</span>
+                    </div>
+                    <div class="absolute inset-0 flex items-center justify-center ${card.suitColor} text-2xl font-black opacity-80 pointer-events-none">
+                        ${centerSymbol}
+                    </div>
+                    <div class="flex flex-col items-center leading-none ${card.suitColor} rotate-180">
+                        <span class="text-[9px] font-mono font-bold">${card.expr}</span>
+                        <span class="text-[10px] font-bold">${card.suitSymbol}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBoard() {
+            const isUserP1 = mode === 'bot' || playerRole === 'p1';
+            const userScore = isUserP1 ? localState.p1Score : localState.p2Score;
+            const oppScore = isUserP1 ? localState.p2Score : localState.p1Score;
+
+            document.getElementById('player-score').innerText = userScore;
+            document.getElementById('bot-score').innerText = oppScore;
+            document.getElementById('hand-points').innerText = `Vale ${localState.handValue} Ponto${localState.handValue > 1 ? 's' : ''}`;
+
+            const isMyTurn = (isUserP1 && localState.currentTurn === 'p1') || (!isUserP1 && localState.currentTurn === 'p2');
+            document.getElementById('turn-indicator').innerText = isMyTurn ? 'Sua Vez de Jogar' : 'Vez do Oponente';
+
+            // Vira
+            document.getElementById('vira-card-container').innerHTML = localState.vira ? renderCardHTML(localState.vira) : '';
+
+            // Hands
+            const myHand = isUserP1 ? localState.p1Hand : localState.p2Hand;
+            const oppHand = isUserP1 ? localState.p2Hand : localState.p1Hand;
+
+            const userCardsEl = document.getElementById('user-cards');
+            userCardsEl.innerHTML = '';
+            myHand.forEach((card, idx) => {
+                if (card) {
+                    userCardsEl.innerHTML += renderCardHTML(card, false, `window.playCard(${idx})`);
+                }
+            });
+
+            const botCardsEl = document.getElementById('bot-cards');
+            botCardsEl.innerHTML = '';
+            oppHand.forEach((card) => {
+                if (card) {
+                    botCardsEl.innerHTML += renderCardHTML(card, true);
+                }
+            });
+
+            // Table Slots
+            const myPlayed = isUserP1 ? localState.p1Played : localState.p2Played;
+            const oppPlayed = isUserP1 ? localState.p2Played : localState.p1Played;
+
+            document.getElementById('user-played-slot').innerHTML = myPlayed ? renderCardHTML(myPlayed) : '<span class="text-xs text-emerald-600 font-bold">Vazio</span>';
+            document.getElementById('bot-played-slot').innerHTML = oppPlayed ? renderCardHTML(oppPlayed) : '<span class="text-xs text-emerald-600 font-bold">Vazio</span>';
+
+            // Truco modal check
+            if (localState.trucoState) {
+                const requestedByMe = (isUserP1 && localState.trucoState.requestedBy === 'p1') || (!isUserP1 && localState.trucoState.requestedBy === 'p2');
+                if (!requestedByMe) {
+                    document.getElementById('truco-modal-desc').innerText = `O oponente pediu Truco! A mão passará a valer ${localState.trucoState.targetValue} pontos.`;
+                    document.getElementById('truco-modal').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('truco-modal').classList.add('hidden');
+            }
+        }
+
+        function logMessage(msg) {
+            document.getElementById('game-log').innerText = msg;
+        }
+
+        // BOT Mode Functions
+        window.startBotGame = function() {
+            mode = 'bot';
+            playerRole = 'p1';
+            document.getElementById('connection-banner').classList.add('hidden');
+            document.getElementById('player-score-label').innerText = 'Nós (Você)';
+            document.getElementById('opponent-score-label').innerText = 'BOT';
+            document.getElementById('opponent-hand-label').innerText = 'Mão do BOT';
+
+            localState.p1Score = 0;
+            localState.p2Score = 0;
+            dealNewHand();
+            logMessage('Jogo contra o BOT iniciado!');
+        };
+
+        function dealNewHand() {
+            const deck = createDeck();
+            localState.vira = deck.pop();
+            localState.p1Hand = [deck.pop(), deck.pop(), deck.pop()];
+            localState.p2Hand = [deck.pop(), deck.pop(), deck.pop()];
+            localState.p1Played = null;
+            localState.p2Played = null;
+            localState.handValue = 1;
+            localState.currentTurn = 'p1';
+            localState.trucoState = null;
+            renderBoard();
+        }
+
+        window.playCard = function(cardIndex) {
+            const isUserP1 = mode === 'bot' || playerRole === 'p1';
+            const isMyTurn = (isUserP1 && localState.currentTurn === 'p1') || (!isUserP1 && localState.currentTurn === 'p2');
+
+            if (!isMyTurn) {
+                logMessage('Aguarde a sua vez de jogar!');
+                return;
+            }
+
+            const myHand = isUserP1 ? localState.p1Hand : localState.p2Hand;
+            const card = myHand[cardIndex];
+            if (!card) return;
+
+            if (isUserP1) {
+                localState.p1Played = card;
+                localState.p1Hand[cardIndex] = null;
+                localState.currentTurn = 'p2';
+            } else {
+                localState.p2Played = card;
+                localState.p2Hand[cardIndex] = null;
+                localState.currentTurn = 'p1';
+            }
+
+            renderBoard();
+
+            if (mode === 'bot') {
+                if (localState.p1Played && localState.p2Played) {
+                    setTimeout(evaluateRound, 1000);
+                } else {
+                    setTimeout(botTurn, 800);
+                }
+            } else {
+                syncOnlineRoom();
+            }
+        };
+
+        function botTurn() {
+            if (localState.currentTurn !== 'p2') return;
+
+            // BOT Truco logic
+            if (!localState.trucoState && Math.random() < 0.25 && localState.handValue === 1) {
+                localState.trucoState = { requestedBy: 'p2', targetValue: 3 };
+                renderBoard();
+                logMessage('O BOT pediu TRUCO!');
+                return;
+            }
+
+            // BOT plays valid card
+            const availableIndices = localState.p2Hand.map((c, i) => c ? i : null).filter(i => i !== null);
+            if (availableIndices.length > 0) {
+                const choiceIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+                localState.p2Played = localState.p2Hand[choiceIndex];
+                localState.p2Hand[choiceIndex] = null;
+                localState.currentTurn = 'p1';
+                renderBoard();
+
+                if (localState.p1Played && localState.p2Played) {
+                    setTimeout(evaluateRound, 1000);
+                }
+            }
+        }
+
+        function evaluateRound() {
+            const str1 = getCardStrength(localState.p1Played, localState.vira);
+            const str2 = getCardStrength(localState.p2Played, localState.vira);
+
+            let winner = null;
+            if (str1 > str2) winner = 'p1';
+            else if (str2 > str1) winner = 'p2';
+
+            if (winner === 'p1') {
+                localState.p1Score += localState.handValue;
+                logMessage(`Você venceu a rodada! (+${localState.handValue} pts)`);
+            } else if (winner === 'p2') {
+                localState.p2Score += localState.handValue;
+                logMessage(`O oponente venceu a rodada! (+${localState.handValue} pts)`);
+            } else {
+                logMessage('Empate na rodada!');
+            }
+
+            setTimeout(() => {
+                if (localState.p1Score >= 12) {
+                    alert('🎉 Parabéns! Você venceu a partida!');
+                    startBotGame();
+                } else if (localState.p2Score >= 12) {
+                    alert('💔 O oponente venceu a partida!');
+                    startBotGame();
+                } else {
+                    dealNewHand();
+                    if (mode === 'online') syncOnlineRoom();
+                }
+            }, 1200);
+        }
+
+        window.handleTrucoClick = function() {
+            const isUserP1 = mode === 'bot' || playerRole === 'p1';
+            const requester = isUserP1 ? 'p1' : 'p2';
+
+            if (localState.trucoState) {
+                logMessage('Já existe um pedido de Truco pendente!');
+                return;
+            }
+
+            let nextVal = 3;
+            if (localState.handValue === 3) nextVal = 6;
+            else if (localState.handValue === 6) nextVal = 9;
+            else if (localState.handValue === 9) nextVal = 12;
+
+            localState.trucoState = { requestedBy: requester, targetValue: nextVal };
+            renderBoard();
+            logMessage(`Você pediu Truco! Vale ${nextVal} pontos.`);
+
+            if (mode === 'online') {
+                syncOnlineRoom();
+            }
+        };
+
+        window.respondTruco = function(accept) {
+            if (!localState.trucoState) return;
+
+            const isUserP1 = mode === 'bot' || playerRole === 'p1';
+            const responder = isUserP1 ? 'p1' : 'p2';
+
+            if (accept) {
+                localState.handValue = localState.trucoState.targetValue;
+                localState.trucoState = null;
+                logMessage(`Truco aceito! Mão agora vale ${localState.handValue} pontos.`);
+            } else {
+                const winner = localState.trucoState.requestedBy;
+                if (winner === 'p1') localState.p1Score += localState.handValue;
+                else localState.p2Score += localState.handValue;
+
+                localState.trucoState = null;
+                logMessage(`Truco recusado! Pontos concedidos ao adversário.`);
+                setTimeout(() => {
+                    dealNewHand();
+                    if (mode === 'online') syncOnlineRoom();
+                }, 1000);
+            }
+
+            renderBoard();
+            if (mode === 'online') syncOnlineRoom();
+        };
+
+        // Firebase Realtime Multiplayer Handlers
+        window.createOnlineRoom = async function() {
+            mode = 'online';
+            playerRole = 'p1';
+            const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            currentRoomId = roomCode;
+
+            document.getElementById('current-room-code').innerText = roomCode;
+            document.getElementById('online-room-status').classList.remove('hidden');
+
+            const deck = createDeck();
+            const initialState = {
+                p1Score: 0,
+                p2Score: 0,
+                handValue: 1,
+                vira: deck.pop(),
+                p1Hand: [deck.pop(), deck.pop(), deck.pop()],
+                p2Hand: [deck.pop(), deck.pop(), deck.pop()],
+                p1Played: null,
+                p2Played: null,
+                currentTurn: 'p1',
+                trucoState: null,
+                status: 'waiting'
+            };
+
+            if (db) {
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    await setDoc(roomRef, initialState);
+                    subscribeToRoom(roomCode);
+                } catch (err) {
+                    console.log("Erro ao salvar sala no Firebase:", err);
+                }
+            } else {
+                // Fallback de simulação local caso não haja banco configurado
+                localState = initialState;
+                subscribeToRoom(roomCode);
+            }
+        };
+
+        window.joinOnlineRoom = async function() {
+            const inputEl = document.getElementById('room-code-input');
+            const codeInput = inputEl ? inputEl.value.trim().toUpperCase() : '';
+            
+            if (!codeInput || codeInput.length < 4) {
+                alert("Por favor, digite um código de sala válido com pelo menos 4 caracteres.");
+                return;
+            }
+
+            const btnJoin = document.getElementById('btn-join-room');
+            if (btnJoin) btnJoin.innerText = "Entrando...";
+
+            mode = 'online';
+            playerRole = 'p2';
+            currentRoomId = codeInput;
+
+            if (db) {
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', codeInput);
+                    const roomSnap = await getDoc(roomRef);
+
+                    if (!roomSnap.exists()) {
+                        alert("Sala não encontrada! Verifique se o código está correto.");
+                        if (btnJoin) btnJoin.innerText = "Entrar";
+                        return;
+                    }
+
+                    await updateDoc(roomRef, { status: 'playing' });
+                    subscribeToRoom(codeInput);
+                } catch (err) {
+                    console.log("Conectando em modo direto...", err);
+                    subscribeToRoom(codeInput);
+                }
+            } else {
+                subscribeToRoom(codeInput);
+            }
+
+            // Fecha a janela modal de entrada
+            const mpModal = document.getElementById('multiplayer-modal');
+            if (mpModal) mpModal.classList.add('hidden');
+            if (btnJoin) btnJoin.innerText = "Entrar";
+
+            logMessage('Conectado à sala! Boa sorte!');
+        };
+
+        function subscribeToRoom(roomCode) {
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            document.getElementById('connection-banner').classList.remove('hidden');
+            document.getElementById('banner-room-code').innerText = roomCode;
+            document.getElementById('player-score-label').innerText = playerRole === 'p1' ? 'Nós (Jogador 1)' : 'Nós (Jogador 2)';
+            document.getElementById('opponent-score-label').innerText = playerRole === 'p1' ? 'Eles (Jogador 2)' : 'Eles (Jogador 1)';
+
+            if (!db) {
+                document.getElementById('banner-status-text').innerText = 'Conectado!';
+                document.getElementById('banner-status-text').className = 'font-bold text-emerald-400';
+                renderBoard();
+                return;
+            }
+
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+            unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    localState = data;
+                    
+                    if (data.status === 'playing') {
+                        document.getElementById('banner-status-text').innerText = 'Conectado e Jogando!';
+                        document.getElementById('banner-status-text').className = 'font-bold text-emerald-400';
+                        const waitingMsg = document.getElementById('room-waiting-msg');
+                        if (waitingMsg) waitingMsg.classList.add('hidden');
+                    }
+
+                    renderBoard();
+
+                    // Avalia rodada em tempo real se ambas as cartas foram jogadas
+                    if (playerRole === 'p1' && localState.p1Played && localState.p2Played) {
+                        setTimeout(() => {
+                            evaluateRound();
+                            syncOnlineRoom();
+                        }, 1000);
+                    }
+                }
+            }, (err) => console.log("Erro no monitoramento da sala:", err));
+        }
+
+        async function syncOnlineRoom() {
+            if (mode === 'online' && currentRoomId && db) {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+                await setDoc(roomRef, localState, { merge: true });
+            }
+        }
+
+        window.copyRoomLink = function() {
+            const codeEl = document.getElementById('current-room-code');
+            if (!codeEl) return;
+            const code = codeEl.innerText;
+            const fullUrl = `${window.location.origin}${window.location.pathname}#${code}`;
+            navigator.clipboard.writeText(fullUrl);
+            alert('Link direto da sala copiado! Envie para o seu amigo.');
+        };
+
+        window.onload = function() {
+            // Check hash URL for room entry
+            if (window.location.hash) {
+                const hashRoom = window.location.hash.substring(1).toUpperCase();
+                const inputEl = document.getElementById('room-code-input');
+                if (hashRoom && inputEl) {
+                    inputEl.value = hashRoom;
+                    window.openMultiplayerModal();
+                }
+            }
+            startBotGame();
+        };
+    </script>
+</body>
+</html>
